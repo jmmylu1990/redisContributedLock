@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @RestController
-@RequestMapping("/ticketGrabber/api")
+@RequestMapping("/rediscontributedlock/api")
 public class Controller<T> {
 
     @Autowired
