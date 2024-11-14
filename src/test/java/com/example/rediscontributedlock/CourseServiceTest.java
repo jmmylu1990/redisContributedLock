@@ -65,7 +65,7 @@ public class CourseServiceTest {
         for (Student student : students) {
             // 隨機選擇一門課程和座位
             Course randomCourse = courses.get(ThreadLocalRandom.current().nextInt(courses.size()));
-            String seat = "seat:" + ThreadLocalRandom.current().nextInt(1, 41);
+            String seat = "seat:" + ThreadLocalRandom.current().nextInt(1, 6);
 
             // 提交選課任務
             results.add(executor.submit(() ->
@@ -92,7 +92,7 @@ public class CourseServiceTest {
         courses.forEach(course -> {
             Course updatedCourse = courseRepository.findById(course.getCourseId()).orElseThrow();
             Assertions.assertTrue(updatedCourse.getAvailableSeats() >= 0, "可用座位數不應為負");
-            Assertions.assertEquals(40 - updatedCourse.getAvailableSeats(),
+            Assertions.assertEquals(5 - updatedCourse.getAvailableSeats(),
                 enrollmentRecordRepository.countByCourseId(course.getCourseId()),
                 "課程座位記錄與選課記錄數量不一致");
         });

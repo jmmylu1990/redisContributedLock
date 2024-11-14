@@ -34,8 +34,13 @@ public class CourseService {
 
         try {
             if (lock.tryLock()) {
-                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
+                boolean alreadyEnrolled = enrollmentRecordRepository.existsByStudentIdAndCourseId(studentId, courseId);
+                if (alreadyEnrolled) {
+                    System.out.println("學生 " + studentId + " 已經選擇過課程 " + courseId + "，無法重複選擇座位。");
+                    return false; // 防止同一學生對同一課程多次選擇座位
+                }
 
+                HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
                 // 檢查座位是否可用
                 String seatStatus = hashOps.get(courseKey, seat);
                 System.out.println("座位狀態：" + seatStatus);
