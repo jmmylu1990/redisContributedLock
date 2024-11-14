@@ -14,6 +14,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -286,5 +288,70 @@ public class Controller<T> {
         }
     }
 
+    @GetMapping("/getTryLockByRedissonV1")
+    public void getTryLockByRedissonV1() throws InterruptedException {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        Long threadId = Thread.currentThread().getId();
+        log.info("用户{}已進入", threadId);
+        RLock lock = redissonClient.getLock(KEY);
+        boolean success;
+        try {
+            success = lock.tryLock();
+            if(success){
+                LocalDateTime currentDateTime = LocalDateTime.now();
+                String startTime = currentDateTime.format(formatter);
+                log.info("用户{}取得鎖{}", threadId, startTime);
+
+                // 進行業務邏輯處理
+                Thread.sleep(35000);
+                LocalDateTime currentDateTime2 = LocalDateTime.now();
+                String logicTime = currentDateTime2.format(formatter);
+                log.info("用户{}完成業務邏輯:{}", threadId, logicTime);
+            }else {
+                log.info("用户{}沒有取得鎖", threadId);
+            }
+
+
+        } finally {
+            //確認redis上的鎖是否為該執行緒的鎖
+            if (lock.isHeldByCurrentThread()) {
+                LocalDateTime currentDateTime3 = LocalDateTime.now();
+                String endTime = currentDateTime3.format(formatter);
+                //確保鎖被當前執行緒持有時才釋放
+                lock.unlock();
+                log.info("用户{}成功釋放鎖{}", threadId, endTime);
+            }
+        }
+    }
+
+    @GetMapping("/getFairLockByRedissonV1")
+    public void getFairLockByRedissonV1() throws InterruptedException {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        Long threadId = Thread.currentThread().getId();
+        log.info("用户{}已進入", threadId);
+        RLock lock = redissonClient.getFairLock(KEY);
+        try {
+            lock.lock();
+            LocalDateTime currentDateTime = LocalDateTime.now();
+            String startTime = currentDateTime.format(formatter);
+            log.info("用户{}取得鎖{}", threadId, startTime);
+
+            // 進行業務邏輯處理
+            Thread.sleep(35000);
+            LocalDateTime currentDateTime2 = LocalDateTime.now();
+            String logicTime = currentDateTime2.format(formatter);
+            log.info("用户{}完成業務邏輯:{}", threadId, logicTime);
+
+        } finally {
+            //確認redis上的鎖是否為該執行緒的鎖
+            if (lock.isHeldByCurrentThread()) {
+                LocalDateTime currentDateTime3 = LocalDateTime.now();
+                String endTime = currentDateTime3.format(formatter);
+                //確保鎖被當前執行緒持有時才釋放
+                lock.unlock();
+                log.info("用户{}成功釋放鎖{}", threadId, endTime);
+            }
+        }
+    }
 
 }

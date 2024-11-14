@@ -31,25 +31,12 @@ import java.util.TimeZone;
 @EnableCaching
 public class RedisConfig extends CachingConfigurerSupport {
 
+
     @Bean
     public LettuceConnectionFactory lettuceConnectionFactory() {
-
-        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration("127.0.0.1", 6380);
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration("127.0.0.1", 6379);
         return new LettuceConnectionFactory(config);
     }
-
-    // key值命名
-//    @Bean
-//    public KeyGenerator wiselyKeyGenerator() {
-//        return new KeyGenerator() {
-//            @Override
-//            public Object generate(Object target, Method method, Object... params) {
-//                return method.getName() + ":"
-//                        + hashCode();
-//
-//            }
-//        };
-//    }
 
     @Bean
     public KeyGenerator wiselyKeyGenerator() {
@@ -72,38 +59,38 @@ public class RedisConfig extends CachingConfigurerSupport {
         return objectMapper;
     }
 
-
     @Bean
     public RedisTemplate<String, Object> redisTemplate(LettuceConnectionFactory lettuceConnectionFactory, ObjectMapper redisObjectMapper) {
-        RedisTemplate<String, Object> redisTemplate = new RedisTemplate<String, Object>();
+        RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
         redisTemplate.setConnectionFactory(lettuceConnectionFactory);
         redisTemplate.setEnableTransactionSupport(true);
-        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(Object.class);
-        StringRedisSerializer stringSerial = new StringRedisSerializer();
-        // redis key 序列化方式使用stringSerial
-        redisTemplate.setKeySerializer(stringSerial);
-        // redis value 序列化方式使用jackson
-        redisTemplate.setValueSerializer(jackson2JsonRedisSerializer);
-        // redis hash key 序列化方式使用stringSerial
-        redisTemplate.setHashKeySerializer(stringSerial);
-        // redis hash value 序列化方式使用jackson
-        redisTemplate.setHashValueSerializer(jackson2JsonRedisSerializer);
-        // 執行任何必要的初始化邏輯
+
+        // 使用 GenericJackson2JsonRedisSerializer 並傳遞自定義的 ObjectMapper
+        GenericJackson2JsonRedisSerializer genericSerializer = new GenericJackson2JsonRedisSerializer(redisObjectMapper);
+
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+        redisTemplate.setKeySerializer(stringSerializer);                   // key 序列化為 String
+        redisTemplate.setValueSerializer(genericSerializer);                 // value 序列化為 JSON
+        redisTemplate.setHashKeySerializer(stringSerializer);               // Hash key 序列化為 String
+        redisTemplate.setHashValueSerializer(genericSerializer);            // Hash value 序列化為 JSON
+
         redisTemplate.afterPropertiesSet();
         return redisTemplate;
     }
 
     @Bean
-    public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
+    public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory, ObjectMapper redisObjectMapper) {
+        // 使用自定義的 ObjectMapper 進行 JSON 序列化
         RedisSerializationContext.SerializationPair<Object> pair = RedisSerializationContext.SerializationPair
-                .fromSerializer(new GenericJackson2JsonRedisSerializer(new ObjectMapper()));
+            .fromSerializer(new GenericJackson2JsonRedisSerializer(redisObjectMapper));
+
+        // 設置 Redis 緩存配置，設置默認過期時間
         RedisCacheConfiguration defaultCacheConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(pair) // 序列化方式
-                .entryTtl(Duration.ofMinutes(1)); // 過期時間
+            .serializeValuesWith(pair) // 序列化方式
+            .entryTtl(Duration.ofMinutes(1)); // 緩存過期時間
 
         return RedisCacheManager.builder(RedisCacheWriter.nonLockingRedisCacheWriter(redisConnectionFactory))
-                .cacheDefaults(defaultCacheConfig).build();
-
+            .cacheDefaults(defaultCacheConfig).build();
     }
 
 }

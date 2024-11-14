@@ -22,7 +22,7 @@ public class RedissonUtil {
             long threadId = Thread.currentThread().getId();
             String uuid = UUID.randomUUID().toString();
             String value = String.format("%s%s", uuid, threadId);
-            System.out.println("value:"+value);
+            log.info("value:"+value);
             bucket.set(value);
             bucket.expire(expireTimeInSeconds, TimeUnit.SECONDS);
             // 取得鎖定對象

@@ -41,7 +41,7 @@ public class RedEnvelopesController {
             System.out.println("红包" + (i + 1) + ": " + redEnvelopesList.get(i) + "元");
         }
 
-        // 将红包列表存储到 Redis 的 List 结构中
+        // 將紅包清單儲存到 Redis 的 List 結構中
         redisTemplate.opsForList().rightPushAll(RED_POCKET_KEY, redEnvelopesList.toArray(new String[0]));
     }
 
