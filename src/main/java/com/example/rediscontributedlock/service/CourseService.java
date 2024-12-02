@@ -28,6 +28,14 @@ public class CourseService {
     @Autowired
     private CourseRepository courseRepository;
 
+    /**
+     * Redisson 鎖的核心貢獻是通過分布式鎖機制，將以下操作串聯在一個原子性事務中：
+     * 檢查座位狀態
+     * 減少課程座位數量
+     * 更新選課記錄
+     * 更新 Redis 座位狀態
+     * //這樣即使多個請求同時嘗試操作同一個課程的座位，也可以避免資料的不一致和資源爭奪問題。
+     **/
     public boolean enrollCourseV1(Long studentId, Long courseId, String seat) {
         //利用 Redisson 提供的分布式鎖功能，為每門課程的座位設置一個獨立的鎖（course:lock:<courseId>:<seat>）。
         String lockKey = "course:lock:" + courseId + "seat"; // 鎖的鍵名
@@ -38,8 +46,7 @@ public class CourseService {
             //使用 tryLock() 方法嘗試獲取鎖，如果獲取成功，則進行選課邏輯。
             //如果無法獲取鎖（例如，其他學生正在處理該課程），則返回選課失敗。
             if (lock.tryLock()) {
-
-                // Step 2: 檢查座位狀態
+                // 檢查座位狀態
                 HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
                 // 檢查座位是否可用
                 String seatStatus = hashOps.get(courseKey, seat);
@@ -53,13 +60,6 @@ public class CourseService {
                         System.out.println("學生 " + studentId + " 已經選擇過課程 " + courseId + "，無法重複選擇座位。");
                         return false; // 防止同一學生對同一課程多次選擇座位
                     }
-                    // 創建並保存選課記錄
-                    EnrollmentRecord record = new EnrollmentRecord();
-                    record.setStudentId(studentId);
-                    record.setCourseId(courseId);
-                    record.setSeat(seat);
-                    enrollmentRecordRepository.save(record);
-
                     // 更新課程的可用座位數
                     Course course = courseRepository.findById(courseId).orElseThrow();
                     int availableSeats = course.getAvailableSeats();
@@ -67,6 +67,12 @@ public class CourseService {
                         course.setAvailableSeats(availableSeats - 1);
                         courseRepository.save(course);
                     }
+                    // 創建並保存選課記錄
+                    EnrollmentRecord record = new EnrollmentRecord();
+                    record.setStudentId(studentId);
+                    record.setCourseId(courseId);
+                    record.setSeat(seat);
+                    enrollmentRecordRepository.save(record);
 
                     // 標記座位為此學生選擇
                     hashOps.put(courseKey, seat, studentId.toString());
