@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.concurrent.TimeUnit;
 
@@ -28,26 +29,30 @@ public class CourseService {
     private CourseRepository courseRepository;
 
     public boolean enrollCourseV1(Long studentId, Long courseId, String seat) {
-        String lockKey = "course:lock:" + courseId; // 鎖的鍵名
+        String lockKey = "course:lock:" + courseId + "seat"; // 鎖的鍵名
         RLock lock = redissonClient.getLock(lockKey);
+        //利用 Redisson 提供的分布式鎖功能，為每門課程設置一個獨立的鎖（course:lock:<courseId>）。
+        //目的是防止多個學生同時選擇同一課程或同一座位時發生競態條件（Race Condition）。
         String courseKey = "course:data:" + courseId; // 座位數據的鍵名
 
         try {
+            //使用 tryLock() 方法嘗試獲取鎖，如果獲取成功，則進行選課邏輯。
+            //如果無法獲取鎖（例如，其他學生正在處理該課程），則返回選課失敗。
             if (lock.tryLock()) {
+                // Step 1: 檢查學生是否已經選過
                 boolean alreadyEnrolled = enrollmentRecordRepository.existsByStudentIdAndCourseId(studentId, courseId);
                 if (alreadyEnrolled) {
                     System.out.println("學生 " + studentId + " 已經選擇過課程 " + courseId + "，無法重複選擇座位。");
                     return false; // 防止同一學生對同一課程多次選擇座位
                 }
-
+                // Step 2: 檢查座位狀態
                 HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
                 // 檢查座位是否可用
                 String seatStatus = hashOps.get(courseKey, seat);
                 System.out.println("座位狀態：" + seatStatus);
-
+                System.out.println("studentId: "+ studentId);
+               //檢查座位是否被其他並發請求佔用
                 if ("available".equals(seatStatus)) {
-                    // 標記座位為此學生選擇
-                    hashOps.put(courseKey, seat, studentId.toString());
 
                     // 創建並保存選課記錄
                     EnrollmentRecord record = new EnrollmentRecord();
@@ -64,6 +69,8 @@ public class CourseService {
                         courseRepository.save(course);
                     }
 
+                    // 標記座位為此學生選擇
+                    hashOps.put(courseKey, seat, studentId.toString());
                     return true; // 選課成功
                 } else {
                     System.out.println("座位 " + seat + " 已被佔用。");
