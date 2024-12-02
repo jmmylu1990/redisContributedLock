@@ -52,7 +52,7 @@ public class CourseService {
                 String seatStatus = hashOps.get(courseKey, seat);
                 System.out.println("座位狀態：" + seatStatus);
                 System.out.println("studentId: "+ studentId);
-               //檢查座位是否被其他並發請求佔用
+               //檢查座位是否已被其他並發請求修改
                 if ("available".equals(seatStatus)) {
                     //檢查學生是否已經選過
                     boolean alreadyEnrolled = enrollmentRecordRepository.existsByStudentIdAndCourseId(studentId, courseId);
