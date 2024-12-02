@@ -38,12 +38,7 @@ public class CourseService {
             //使用 tryLock() 方法嘗試獲取鎖，如果獲取成功，則進行選課邏輯。
             //如果無法獲取鎖（例如，其他學生正在處理該課程），則返回選課失敗。
             if (lock.tryLock()) {
-                // Step 1: 檢查學生是否已經選過
-                boolean alreadyEnrolled = enrollmentRecordRepository.existsByStudentIdAndCourseId(studentId, courseId);
-                if (alreadyEnrolled) {
-                    System.out.println("學生 " + studentId + " 已經選擇過課程 " + courseId + "，無法重複選擇座位。");
-                    return false; // 防止同一學生對同一課程多次選擇座位
-                }
+
                 // Step 2: 檢查座位狀態
                 HashOperations<String, String, String> hashOps = redisTemplate.opsForHash();
                 // 檢查座位是否可用
@@ -52,7 +47,12 @@ public class CourseService {
                 System.out.println("studentId: "+ studentId);
                //檢查座位是否被其他並發請求佔用
                 if ("available".equals(seatStatus)) {
-
+                    //檢查學生是否已經選過
+                    boolean alreadyEnrolled = enrollmentRecordRepository.existsByStudentIdAndCourseId(studentId, courseId);
+                    if (alreadyEnrolled) {
+                        System.out.println("學生 " + studentId + " 已經選擇過課程 " + courseId + "，無法重複選擇座位。");
+                        return false; // 防止同一學生對同一課程多次選擇座位
+                    }
                     // 創建並保存選課記錄
                     EnrollmentRecord record = new EnrollmentRecord();
                     record.setStudentId(studentId);
