@@ -29,9 +29,9 @@ public class CourseService {
     private CourseRepository courseRepository;
 
     public boolean enrollCourseV1(Long studentId, Long courseId, String seat) {
+        //利用 Redisson 提供的分布式鎖功能，為每門課程的座位設置一個獨立的鎖（course:lock:<courseId>:<seat>）。
         String lockKey = "course:lock:" + courseId + "seat"; // 鎖的鍵名
         RLock lock = redissonClient.getLock(lockKey);
-        //利用 Redisson 提供的分布式鎖功能，為每門課程設置一個獨立的鎖（course:lock:<courseId>）。
         //目的是防止多個學生同時選擇同一課程或同一座位時發生競態條件（Race Condition）。
         String courseKey = "course:data:" + courseId; // 座位數據的鍵名
 
